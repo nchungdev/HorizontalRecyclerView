@@ -5,6 +5,8 @@ import android.util.AttributeSet
 import android.util.SparseIntArray
 import android.view.View
 import android.view.ViewGroup
+import androidx.core.util.containsKey
+import androidx.core.util.isNotEmpty
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 
@@ -21,7 +23,7 @@ class HorizontalRecyclerView : RecyclerView {
         defStyleAttr: Int
     ) : super(context, attrs, defStyleAttr)
 
-    private val childHeightSparseArray = SparseIntArray()
+    private val childHeightMap = SparseIntArray()
     private val positionHashSet = mutableSetOf<Int>()
     private var runnable: Runnable? = null
 
@@ -69,24 +71,28 @@ class HorizontalRecyclerView : RecyclerView {
     }
 
     private fun isChildViewHeightChanged(views: List<View>): Boolean {
-        var viewChanged: View? = null
+        var isViewChanged = false
         views.forEach { view ->
             val layoutParams = view.layoutParams as MarginLayoutParams
-            val viewHeight = view.height + layoutParams.topMargin + layoutParams.bottomMargin
+            val currentHeight = view.height + layoutParams.topMargin + layoutParams.bottomMargin
 
-            val childLastHeight = childHeightSparseArray.get(view.id)
-            if (childLastHeight != viewHeight) {
-                childHeightSparseArray.put(view.id, viewHeight)
-            }
-            if (childLastHeight == 0) {
+            val lastHeight = childHeightMap.get(view.id)
+            if (lastHeight >= currentHeight) {
                 return@forEach
             }
-            if (childLastHeight != viewHeight) {
-                viewChanged = view
+            if (isItemLayoutChanged(view.id)) {
+                isViewChanged = true
             }
+            if (lastHeight > 0) {
+                isViewChanged = true
+            }
+            childHeightMap.put(view.id, currentHeight)
         }
-        return viewChanged != null
+        return isViewChanged
     }
+
+    private fun isItemLayoutChanged(viewId: Int) =
+        childHeightMap.isNotEmpty() && !childHeightMap.containsKey(viewId)
 
     private fun requestLayout(view: View) = Runnable {
         positionHashSet.add(getChildAdapterPosition(view))
